@@ -38,10 +38,7 @@ def get_default_service() -> str:
     services = ["youtube", "saavn"]
     try:
         config_service = DEFAULT_SERVICE.lower()
-        if config_service in services:
-            return config_service
-        else:  # Invalid DEFAULT_SERVICE
-            return "youtube"
+        return config_service if config_service in services else "youtube"
     except NameError:  # DEFAULT_SERVICE not defined
         return "youtube"
 
@@ -74,9 +71,8 @@ async def pause_skip_watcher(message: Message, duration: int):
                     restart_while = True
                     db["replayed"] = False
                     break
-                if "queue_breaker" in db:
-                    if db["queue_breaker"] != 0:
-                        break
+                if "queue_breaker" in db and db["queue_breaker"] != 0:
+                    break
                 await asyncio.sleep(0.1)
             if not restart_while:
                 break
@@ -85,8 +81,7 @@ async def pause_skip_watcher(message: Message, duration: int):
         db["skipped"] = False
     except Exception as e:
         e = traceback.format_exc()
-        print(str(e))
-        pass
+        print(e)
 
 
 async def change_vc_title(title: str):
@@ -121,7 +116,7 @@ async def download_and_transcode_song(url):
 
 # Convert seconds to mm:ss
 def convert_seconds(seconds: int):
-    seconds = seconds % (24 * 3600)
+    seconds %= 24 * 3600
     seconds %= 3600
     minutes = seconds // 60
     seconds %= 60
@@ -143,8 +138,7 @@ def changeImageSize(maxWidth: int, maxHeight: int, image):
     heightRatio = maxHeight / image.size[1]
     newWidth = int(widthRatio * image.size[0])
     newHeight = int(heightRatio * image.size[1])
-    newImage = image.resize((newWidth, newHeight))
-    return newImage
+    return image.resize((newWidth, newHeight))
 
 
 async def send(*args, **kwargs):
@@ -205,7 +199,6 @@ async def generate_cover(
         await send(
             text="[ERROR]: FAILED TO EDIT VC TITLE, MAKE ME ADMIN."
         )
-        pass
     return final
 
 
@@ -235,25 +228,21 @@ async def get_song(query: str, service: str):
         if not resp.ok:
             return
         song = resp.result[0]
-        title = song.song[0:30]
+        title = song.song[:30]
         duration = int(song.duration)
         thumbnail = song.image
-        artist = (
-            song.singers
-            if not isinstance(song.singers, list)
-            else song.singers[0]
-        )
+        artist = song.singers[0] if isinstance(song.singers, list) else song.singers
         url = song.media_url
     elif service == "youtube":
         resp = await arq.youtube(query)
         if not resp.ok:
             return
         song = resp.result[0]
-        title = song.title[0:30]
+        title = song.title[:30]
         duration = time_to_seconds(song.duration)
         thumbnail = song.thumbnails[0]
         artist = song.channel
-        url = "https://youtube.com" + song.url_suffix
+        url = f"https://youtube.com{song.url_suffix}"
     else:
         return
 

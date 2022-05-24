@@ -132,9 +132,8 @@ async def volume_bot(_, message):
 async def pause_song_func(_, message):
     if "call" not in db:
         return await message.reply_text("**VC isn't started**")
-    if "paused" in db:
-        if db.get("paused"):
-            return await message.reply_text("**Already paused**")
+    if "paused" in db and db.get("paused"):
+        return await message.reply_text("**Already paused**")
     db["paused"] = True
     db["call"].pause_playout()
     await message.reply_text(
@@ -150,9 +149,8 @@ async def pause_song_func(_, message):
 async def resume_song(_, message):
     if "call" not in db:
         return await message.reply_text("**VC isn't started**")
-    if "paused" in db:
-        if not db.get("paused"):
-            return await message.reply_text("**Already playing**")
+    if "paused" in db and not db.get("paused"):
+        return await message.reply_text("**Already playing**")
     db["paused"] = False
     db["call"].resume_playout()
     await message.reply_text(
@@ -202,13 +200,12 @@ __/play Reply_On_Audio__"""
                     "**Use /joinvc First!**"
                 )
             if message.reply_to_message:
-                if message.reply_to_message.audio:
-                    service = "telegram"
-                    song_name = message.reply_to_message.audio.title
-                else:
+                if not message.reply_to_message.audio:
                     return await message.reply_text(
                         "**Reply to a telegram audio file**"
                     )
+                service = "telegram"
+                song_name = message.reply_to_message.audio.title
             else:
                 text = message.text.split("\n")[0]
                 text = text.split(None, 2)[1:]
@@ -258,22 +255,21 @@ async def queue_list(_, message):
         return await message.reply_text(
             "__**Queue Is Empty, Just Like Your Life.**__"
         )
-    if (
+    pl_format = (
         len(message.text.split()) > 1
         and message.text.split()[1].lower() == "plformat"
-    ):
-        pl_format = True
-    else:
-        pl_format = False
-    text = ""
-    for count, song in enumerate(queue._queue, 1):
-        if not pl_format:
-            text += (
-                f"**{count}. {song['service']}** "
-                + f"| __{song['query']}__  |  {song['requested_by']}\n"
-            )
-        else:
-            text += song["query"] + "\n"
+    )
+
+    text = "".join(
+        song["query"] + "\n"
+        if pl_format
+        else (
+            f"**{count}. {song['service']}** "
+            + f"| __{song['query']}__  |  {song['requested_by']}\n"
+        )
+        for count, song in enumerate(queue._queue, 1)
+    )
+
     if len(text) > 4090:
         return await message.reply_text(
             f"**There are {queue.qsize()} songs in queue.**"
@@ -355,8 +351,8 @@ Example:
         db["queue_breaker"] = 1
     db["playlist"] = True
     db["queue"] = asyncio.Queue()
+    services = ["youtube", "saavn"]
     for line in raw_playlist.split("\n"):
-        services = ["youtube", "saavn"]
         if line.split()[0].lower() in services:
             service = line.split()[0].lower()
             song_name = " ".join(line.split()[1:])
